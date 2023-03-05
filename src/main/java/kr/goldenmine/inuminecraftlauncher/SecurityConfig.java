@@ -17,6 +17,9 @@ public class SecurityConfig {
                 .antMatchers("/auth").permitAll()
                 .antMatchers("/html").permitAll()
                 .antMatchers("/statistics").hasIpAddress("localhost")
+                .antMatchers("/file/upload").hasIpAddress("localhost")
+                .antMatchers("/file/download").permitAll()
+//                .antMatchers("/file/uploadFile").hasIpAddress("localhost")
                 .and()
                 .csrf().disable()
                 .cors().disable();

@@ -12,10 +12,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -33,12 +32,46 @@ public class FileController {
         this.fileStorageService = fileStorageService;
     }
 
+    private static String getOSDirectory(String os, String file) {
+        return "java/" + os + "/" + file;
+    }
+
+    private static String getModDirectory(String mod) {
+        return "mods/" + mod;
+    }
+
+    private static String getVersionsFile() {
+        return "versions.txt";
+    }
+
+    private static List<String> versions = new ArrayList<>();
+
+    static {
+        // load all available versions
+        File file = new File(getVersionsFile());
+        try(BufferedReader r = new BufferedReader(new FileReader(file))) {
+            String s;
+            while((s = r.readLine()) != null) {
+                versions.add(s);
+            }
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @PostMapping("/versions")
+    public ResponseEntity<List<String>> getVersions() {
+        return ResponseEntity.ok(versions);
+    }
+
     @PostMapping("/upload")
     public UploadFileResponse uploadFile(@RequestParam("file") MultipartFile file) {
         String fileName = fileStorageService.storeFile(file);
 
         String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/downloadFile/")
+                .path("/download/")
                 .path(fileName)
                 .toUriString();
 
@@ -46,34 +79,22 @@ public class FileController {
                 file.getContentType(), file.getSize());
     }
 
-    @PostMapping("/uploadMultiple")
-    public List<UploadFileResponse> uploadMultipleFiles(@RequestParam("files") MultipartFile[] files) {
-        return Arrays.stream(files)
-                .map(this::uploadFile)
-                .collect(Collectors.toList());
+    @GetMapping("/download/java/{os:.+}/{fileName:.+}")
+    public ResponseEntity<Resource> downloadJava(@PathVariable String os, @PathVariable String fileName, HttpServletRequest request) {
+        return getDownloadResource("java/" + os + "/" + fileName, request);
     }
 
-    @GetMapping("/check/{fileName:.+}")
-    public ResponseEntity<String> checkFile(@PathVariable String fileName) throws Exception {
-        Resource resource = fileStorageService.loadFileAsResource(fileName);
-
-        File file = resource.getFile();
-        FileInputStream fileInputStream = new FileInputStream(file);
-        MessageDigest md = MessageDigest.getInstance("MD5");
-
-        byte[] bytes = fileInputStream.readAllBytes();
-        fileInputStream.close();
-
-        md.update(bytes);
-        String hash = Base64.getEncoder().encodeToString(md.digest());
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_PLAIN);
-        return new ResponseEntity<>(hash, headers, HttpStatus.OK);
+    @GetMapping("/download/mods/{modName:.+}")
+    public ResponseEntity<Resource> downloadMod(@PathVariable String modName, HttpServletRequest request) {
+        return getDownloadResource("mods/" + modName, request);
     }
 
-    @GetMapping("/download/{fileName:.+}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName, HttpServletRequest request) {
+    @GetMapping("/download/version/{version}")
+    public ResponseEntity<Resource> downloadVersion(@PathVariable("version") String version, HttpServletRequest request) {
+        return getDownloadResource("versions/" + version  + ".json", request);
+    }
+
+    public ResponseEntity<Resource> getDownloadResource(String fileName, HttpServletRequest request)  {
         // Load file as Resource
         Resource resource = fileStorageService.loadFileAsResource(fileName);
 
@@ -95,4 +116,24 @@ public class FileController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
                 .body(resource);
     }
+
+
+//    @GetMapping("/check/{fileName:.+}")
+//    public ResponseEntity<String> checkFile(@PathVariable String fileName) throws Exception {
+//        Resource resource = fileStorageService.loadFileAsResource(fileName);
+//
+//        File file = resource.getFile();
+//        FileInputStream fileInputStream = new FileInputStream(file);
+//        MessageDigest md = MessageDigest.getInstance("MD5");
+//
+//        byte[] bytes = fileInputStream.readAllBytes();
+//        fileInputStream.close();
+//
+//        md.update(bytes);
+//        String hash = Base64.getEncoder().encodeToString(md.digest());
+//
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.TEXT_PLAIN);
+//        return new ResponseEntity<>(hash, headers, HttpStatus.OK);
+//    }
 }
