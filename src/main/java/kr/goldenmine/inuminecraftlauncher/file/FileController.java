@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,12 +12,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.*;
-import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/file")
@@ -89,7 +84,7 @@ public class FileController {
         return getDownloadResource("mods/" + modName, request);
     }
 
-    @GetMapping("/download/version/{version}")
+    @GetMapping("/download/version/{version:.+}")
     public ResponseEntity<Resource> downloadVersion(@PathVariable("version") String version, HttpServletRequest request) {
         return getDownloadResource("versions/" + version  + ".json", request);
     }
