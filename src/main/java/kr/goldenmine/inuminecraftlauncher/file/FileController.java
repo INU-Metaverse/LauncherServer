@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,7 +13,10 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 @RestController
@@ -112,23 +116,36 @@ public class FileController {
                 .body(resource);
     }
 
+    @GetMapping("/check/java/{fileName:.+}")
+    public ResponseEntity<String> checkFileJava(@PathVariable String fileName) throws Exception {
+        return checkFile("java/" + fileName);
+    }
 
-//    @GetMapping("/check/{fileName:.+}")
-//    public ResponseEntity<String> checkFile(@PathVariable String fileName) throws Exception {
-//        Resource resource = fileStorageService.loadFileAsResource(fileName);
-//
-//        File file = resource.getFile();
-//        FileInputStream fileInputStream = new FileInputStream(file);
-//        MessageDigest md = MessageDigest.getInstance("MD5");
-//
-//        byte[] bytes = fileInputStream.readAllBytes();
-//        fileInputStream.close();
-//
-//        md.update(bytes);
-//        String hash = Base64.getEncoder().encodeToString(md.digest());
-//
-//        HttpHeaders headers = new HttpHeaders();
-//        headers.setContentType(MediaType.TEXT_PLAIN);
-//        return new ResponseEntity<>(hash, headers, HttpStatus.OK);
-//    }
+    @GetMapping("/check/version/{fileName:.+}")
+    public ResponseEntity<String> checkFileVersion(@PathVariable String fileName) throws Exception {
+        return checkFile("version/" + fileName);
+    }
+
+    @GetMapping("/check/mods/{fileName:.+}")
+    public ResponseEntity<String> checkFileMods(@PathVariable String fileName) throws Exception {
+        return checkFile("mods/" + fileName);
+    }
+
+    public ResponseEntity<String> checkFile(String fileName) throws IOException, NoSuchAlgorithmException {
+        Resource resource = fileStorageService.loadFileAsResource(fileName);
+
+        File file = resource.getFile();
+        FileInputStream fileInputStream = new FileInputStream(file);
+        MessageDigest md = MessageDigest.getInstance("MD5");
+
+        byte[] bytes = fileInputStream.readAllBytes();
+        fileInputStream.close();
+
+        md.update(bytes);
+        String hash = Base64.getEncoder().encodeToString(md.digest());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_PLAIN);
+        return new ResponseEntity<>(hash, headers, HttpStatus.OK);
+    }
 }
