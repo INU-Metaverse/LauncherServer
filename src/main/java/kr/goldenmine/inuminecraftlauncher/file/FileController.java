@@ -93,6 +93,16 @@ public class FileController {
         return getDownloadResource("versions/" + version  + ".json", request);
     }
 
+    @GetMapping("/download/options/{option:.+}")
+    public ResponseEntity<Resource> downloadOption(@PathVariable("option") String option, HttpServletRequest request) {
+        return getDownloadResource("options/" + option  + ".txt", request);
+    }
+
+    @GetMapping("/download/options/{shader:.+}")
+    public ResponseEntity<Resource> downloadShader(@PathVariable("shader") String shader, HttpServletRequest request) {
+        return getDownloadResource("shaders/" + shader  + ".zip", request);
+    }
+
     public ResponseEntity<Resource> getDownloadResource(String fileName, HttpServletRequest request)  {
         // Load file as Resource
         Resource resource = fileStorageService.loadFileAsResource(fileName);
@@ -129,6 +139,16 @@ public class FileController {
     @GetMapping("/check/mods/{fileName:.+}")
     public ResponseEntity<String> checkFileMods(@PathVariable String fileName) throws Exception {
         return checkFile("mods/" + fileName);
+    }
+
+    @GetMapping("/check/options/{fileName:.+}")
+    public ResponseEntity<String> checkFileOptions(@PathVariable String fileName) throws Exception {
+        return checkFile("options/" + fileName);
+    }
+
+    @GetMapping("/check/shaders/{fileName:.+}")
+    public ResponseEntity<String> checkFileShaders(@PathVariable String fileName) throws Exception {
+        return checkFile("shaders/" + fileName);
     }
 
     public ResponseEntity<String> checkFile(String fileName) throws IOException, NoSuchAlgorithmException {
