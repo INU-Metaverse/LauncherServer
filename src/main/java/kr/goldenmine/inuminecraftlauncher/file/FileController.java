@@ -65,18 +65,18 @@ public class FileController {
         return ResponseEntity.ok(versions);
     }
 
-    @PostMapping("/upload")
-    public UploadFileResponse uploadFile(@RequestParam("file") MultipartFile file) {
-        String fileName = fileStorageService.storeFile(file);
-
-        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/download/")
-                .path(fileName)
-                .toUriString();
-
-        return new UploadFileResponse(fileName, fileDownloadUri,
-                file.getContentType(), file.getSize());
-    }
+//    @PostMapping("/upload")
+//    public UploadFileResponse uploadFile(@RequestParam("file") MultipartFile file) {
+//        String fileName = fileStorageService.storeFile(file);
+//
+//        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+//                .path("/download/")
+//                .path(fileName)
+//                .toUriString();
+//
+//        return new UploadFileResponse(fileName, fileDownloadUri,
+//                file.getContentType(), file.getSize());
+//    }
 
     @GetMapping("/download/java/{os:.+}/{fileName:.+}")
     public ResponseEntity<Resource> downloadJava(@PathVariable String os, @PathVariable String fileName, HttpServletRequest request) {
