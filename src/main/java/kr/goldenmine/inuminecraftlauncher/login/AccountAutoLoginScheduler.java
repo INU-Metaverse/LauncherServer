@@ -1,15 +1,25 @@
 package kr.goldenmine.inuminecraftlauncher.login;
 
+import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
+import kr.goldenmine.inuminecraftlauncher.launcher.DefaultLauncherDirectories;
 import kr.goldenmine.inuminecraftlauncher.login.impl.AccountException;
-import kr.goldenmine.inuminecraftlauncher.request.MicrosoftServiceImpl;
-import kr.goldenmine.inuminecraftlauncher.request.models.MicrosoftTokenResponse;
-import kr.goldenmine.inuminecraftlauncher.request.models.minecraft.MinecraftProfileResponse;
-import kr.goldenmine.inuminecraftlauncher.request.models.xbox.XBoxXstsResponse;
-import kr.goldenmine.inuminecraftlauncher.util.LoopUtil;
+import kr.goldenmine.launchercore.UserAdministrator;
+import kr.goldenmine.launchercore.request.RetrofitServices;
+import kr.goldenmine.launchercore.request.models.MicrosoftTokenResponse;
+import kr.goldenmine.launchercore.request.models.minecraft.MinecraftProfileResponse;
+import kr.goldenmine.launchercore.request.models.xbox.XBoxXstsResponse;
+import kr.goldenmine.launchercore.util.LoopUtil;
 import lombok.extern.slf4j.Slf4j;
+import net.technicpack.minecraftcore.microsoft.auth.MicrosoftUser;
+import net.technicpack.utilslib.DesktopUtils;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -21,15 +31,12 @@ public class AccountAutoLoginScheduler extends Thread {
     private final MicrosoftAccountService microsoftAccountService;
     private final MicrosoftKeyService microsoftKeyService;
 
-    private final long sleepInMS;
     private boolean stop = false;
 
     @Autowired
     public AccountAutoLoginScheduler(MicrosoftAccountService microsoftAccountService, MicrosoftKeyService microsoftKeyService) {
         this.microsoftAccountService = microsoftAccountService;
         this.microsoftKeyService = microsoftKeyService;
-
-        sleepInMS = 900 * 1000L; // 토큰 expire의 1/4
 
         start();
         log.info("AutoLoginScheduler is started.");
@@ -50,7 +57,7 @@ public class AccountAutoLoginScheduler extends Thread {
 
                 log.info(time + " ms is used for accessing or refreshing all accounts.");
 
-                Thread.sleep(Math.max(sleepInMS - time, 1));
+                Thread.sleep(Math.max(MicrosoftAccount.SLEEP_IN_MS - time, 1));
             } catch (InterruptedException ex) {
                 log.warn(ex.getMessage());
             } catch (Exception ex) {
@@ -65,142 +72,132 @@ public class AccountAutoLoginScheduler extends Thread {
         }
     }
 
-    private MicrosoftTokenResponse getMicrosoftTokenResponse(MicrosoftAccount microsoftAccount) throws InterruptedException, AccountException {
-        MicrosoftTokenResponse response;
-        if (microsoftAccount.getRecentRefreshToken() == null) {
-            Optional<MicrosoftTokenResponse> responseOptional = LoopUtil.waitWhile(() -> {
-                try {
-                    MicrosoftTokenResponse result = MicrosoftServiceImpl.firstLogin(microsoftAccount.getEmail(), microsoftAccount.getPassword());
-                    if (result != null) {
-                        return Optional.of(result);
-                    }
-                } catch (Exception ex) {
-                    log.error(ex.getMessage(), ex);
-                }
-                return Optional.empty();
-            }, 1000L, 5);
-
-            if(responseOptional.isPresent()) {
-                response = responseOptional.get();
-            } else {
-                throw new AccountException("failed to get microsoft token response when refresh token is none");
-            }
-        } else {
-            Optional<MicrosoftTokenResponse> responseOptional = LoopUtil.waitWhile(() -> {
-                try {
-                    return Optional.of(MicrosoftServiceImpl.refresh(microsoftAccount.getRecentRefreshToken()));
-                } catch (Exception ex) {
-                    log.error(ex.getMessage(), ex);
-                    return Optional.empty();
-                }
-            }, 1000L, 5);
-
-            if(responseOptional.isPresent()) {
-                response = responseOptional.get();
-            } else {
-                throw new AccountException("failed to get microsoft token response when refresh token exists");
-            }
-        }
-
-        return response;
-    }
-
-    private XBoxXstsResponse getXBoxResponse(MicrosoftTokenResponse response) throws InterruptedException, AccountException {
-        Optional<XBoxXstsResponse> xBoxResponse = LoopUtil.waitWhile(() -> {
+    private MicrosoftUser loginRepeat(UserAdministrator administrator, BrowserAutomatic browser, String username, int repeat) {
+        for(int i = 0; i < repeat; i++) {
             try {
-                return Optional.of(MicrosoftServiceImpl.loginXbox(response.getAccessToken()));
-            } catch (IOException e) {
-                log.error(e.getMessage(), e);
-                return Optional.empty();
+                return administrator.login(username, browser);
+            } catch(Exception ex) {
+                log.error(ex.getMessage(), ex);
             }
-        }, 1000L, 5);
-
-        if(xBoxResponse.isPresent()) {
-            return xBoxResponse.get();
-        } else {
-            throw new AccountException("failed to get xbox token response");
         }
-    }
 
-    private MinecraftProfileResponse getMinecraftProfileResponse(XBoxXstsResponse xBoxXstsResponse) throws InterruptedException, AccountException {
-
-        Optional<MinecraftProfileResponse> minecraftProfileResponse = LoopUtil.waitWhile(() -> {
-            try {
-                return Optional.of(MicrosoftServiceImpl.getMinecraftProfile(xBoxXstsResponse.getToken(), xBoxXstsResponse.getPreviousUhs()));
-            } catch (IOException e) {
-                log.error(e.getMessage(), e);
-                return Optional.empty();
-            }
-        }, 1000L, 5);
-
-        if(minecraftProfileResponse.isPresent()) {
-            return minecraftProfileResponse.get();
-        } else {
-            throw new AccountException("failed to get xbox token response");
-        }
-    }
-
-    private boolean checkWhetherRefreshNeeded(MicrosoftAccount microsoftAccount) {
-        final long INNER_TIME = System.currentTimeMillis();
-        boolean borrowedButNotUsed = microsoftAccount.getServerBorrowed() == 1
-                && microsoftAccount.getServerJoined() == 0
-                && INNER_TIME >= microsoftAccount.getServerBorrowedExpire();
-
-        boolean accessTimeExpired = INNER_TIME + sleepInMS * 1.5 >= microsoftAccount.getTokenExpire();
-
-        boolean quitted = microsoftAccount.getServerQuitted() == 1;
-
-        return borrowedButNotUsed || (accessTimeExpired && quitted);
+        throw new RuntimeException("login failed severaly");
     }
 
     private void tryAllLogin() {
+        DefaultLauncherDirectories directories = new DefaultLauncherDirectories(new File("inulauncher"));
+        UserAdministrator userAdministrator = new UserAdministrator(directories);
+
+        BrowserAutomatic automatic = new BrowserAutomatic();
+
         List<MicrosoftAccount> list = microsoftAccountService.list();
-        MicrosoftKey primary = microsoftKeyService.getPrimary();
-
-        log.info("client id: " + primary.getClientId());
-        log.info("client secret: " + primary.getClientSecret());
-        log.info("current time: " + System.currentTimeMillis());
-
-        MicrosoftServiceImpl.clientId = primary.getClientId();
-        MicrosoftServiceImpl.clientSecret = primary.getClientSecret();
-        MicrosoftServiceImpl.state = UUID.randomUUID().toString(); // random state for security
-
         log.info("total accounts: " + list.size());
 
         for (MicrosoftAccount microsoftAccount : list) {
             try {
-                final long INNER_TIME = System.currentTimeMillis();
+                log.info("try to login " + microsoftAccount.getEmail() + ", " + (microsoftAccount.getTokenExpire() - System.currentTimeMillis()) / 1000 + "s remaining...");
 
-                log.info("trying to login " + microsoftAccount.getEmail() + ", " + (microsoftAccount.getTokenExpire() - INNER_TIME) / 1000 + "s remaining...");
+                if (microsoftAccount.checkWhetherRefreshNeeded()) {
+                    automatic.setAccount(microsoftAccount.getEmail(), microsoftAccount.getPassword());
+                    MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 5);
 
-                if (checkWhetherRefreshNeeded(microsoftAccount)) {
-                    MicrosoftTokenResponse microsoftTokenResponse = getMicrosoftTokenResponse(microsoftAccount);
-                    XBoxXstsResponse xBoxResponse = getXBoxResponse(microsoftTokenResponse);
-                    MinecraftProfileResponse minecraftProfileResponse = getMinecraftProfileResponse(xBoxResponse);
-
-                    microsoftAccount.setServerQuitted(1);
-                    microsoftAccount.setServerJoined(0);
-                    microsoftAccount.setServerBorrowedExpire(0);
-                    microsoftAccount.setServerBorrowed(0);
-                    microsoftAccount.setTokenExpire(INNER_TIME + microsoftTokenResponse.getExpiresIn() * 1000L);
-                    microsoftAccount.setRecentAccessToken(microsoftTokenResponse.getAccessToken());
-                    microsoftAccount.setRecentRefreshToken(microsoftTokenResponse.getRefreshToken());
-                    microsoftAccount.setRecentProfileToken(xBoxResponse.getToken());
-                    microsoftAccount.setMinecraftUsername(minecraftProfileResponse.getName());
-                    microsoftAccount.setMinecraftUuid(minecraftProfileResponse.getId().toString());
+                    microsoftAccount.initMicrosoftUser(user);
 
                     microsoftAccountService.save(microsoftAccount);
 
-                    log.info("logged " + microsoftAccount.getEmail() + ", " + microsoftAccount.getRecentProfileToken() + ", " + microsoftTokenResponse.getExpiresIn());
+                    log.info("logged " + microsoftAccount.getEmail() + ", " + microsoftAccount.getAccessToken() + ", " + microsoftAccount.getTokenExpire());
                 } else {
                     log.info("skipped " + microsoftAccount.getEmail());
                 }
 
-                Thread.sleep(sleepInMS / 1000L);
+                // 그냥 각 계정간 0.5초 텀
+                Thread.sleep(500L);
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
             }
         }
         microsoftAccountService.flush();
+    }
+
+    public static class BrowserAutomatic implements AuthorizationCodeInstalledApp.Browser {
+        private String id;
+        private String password;
+
+        private boolean running = false;
+        private ChromeDriver driver;
+
+        public void setAccount(String id, String password) {
+            this.id = id;
+            this.password = password;
+        }
+
+        public static ChromeDriver getChromeDriver() {
+            ChromeOptions chromeOptions = new ChromeOptions();
+            chromeOptions.addArguments("--start-maximized");
+            chromeOptions.addArguments("--remote-allow-origins=*");
+            return new ChromeDriver(chromeOptions);
+        }
+
+        @Override
+        public void browse(String url) throws IOException {
+            synchronized (this) {
+                if(running) throw new RuntimeException("browse(url) is already running");
+                running = true;
+            }
+
+            log.info("url: " + url);
+
+            if(driver == null) {
+                driver = getChromeDriver();
+            }
+
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> driver.quit()));
+
+//            String url2 = RetrofitServices.MICROSOFT_LIVE_SERVICE.requestAuthorizationCodeWithCobrandId(
+//                    "select_account",
+//                    "8058f65d-ce06-4c30-9559-473c9275a65d", // 마인크래프트 배경
+//                    clientId,
+//                    "http://localhost:" + 20200 + "/auth/microsoft",
+//                    "code"
+//            ).request().url().url().toString();
+
+
+            try {
+                // load login html
+                driver.get(url);
+                Thread.sleep(1000L);
+
+                Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
+
+                WebElement idElement = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "email".equals(it.getAttribute("type"))).findFirst(), 1000L, -1).get();
+
+                Optional<WebElement> optionalSubmitElement = driver.findElements(By.tagName("input")).stream().filter(it -> "submit".equals(it.getAttribute("type"))).findFirst();
+                WebElement submitElement = optionalSubmitElement.get();
+
+                idElement.sendKeys(id);
+                Thread.sleep(500L);
+                submitElement.click();
+
+                WebElement passwordElement = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "password".equals(it.getAttribute("type"))).findFirst(), 1000L, -1).get();
+                submitElement = driver.findElements(By.tagName("input")).stream().filter(it -> "submit".equals(it.getAttribute("type"))).findFirst().get();
+
+                passwordElement.sendKeys(password);
+                Thread.sleep(500L);
+                submitElement.click();
+
+                Optional<WebElement> find = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "button".equals(it.getAttribute("type")) && "아니요".equals(it.getAttribute("value"))).findFirst(), 1000L, 10);
+
+                if (find.isPresent()) {
+                    WebElement nextButton = driver.findElements(By.tagName("input")).stream().filter(it -> "button".equals(it.getAttribute("type")) && "아니요".equals(it.getAttribute("value"))).findFirst().get();
+                    nextButton.click();
+                }
+            } catch (Exception ex) {
+                log.error(ex.getMessage(), ex);
+            } finally {
+                synchronized (this) {
+                    running = false;
+                }
+            }
+        }
     }
 }

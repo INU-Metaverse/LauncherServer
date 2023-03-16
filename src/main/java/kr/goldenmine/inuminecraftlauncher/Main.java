@@ -31,7 +31,7 @@ public class Main {
 //        MicrosoftServiceImpl.tryAllLogin();
         WebDriverManager.chromedriver().setup();
 
-        SpringApplicationBuilder builder = new SpringApplicationBuilder(CoreMain.class);
+        SpringApplicationBuilder builder = new SpringApplicationBuilder(Main.class);
         builder.headless(false);
         ConfigurableApplicationContext context = builder.run(args);
     }
