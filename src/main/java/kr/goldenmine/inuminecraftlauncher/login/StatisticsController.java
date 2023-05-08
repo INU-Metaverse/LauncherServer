@@ -14,8 +14,11 @@ import java.util.List;
 @RestController("/statistics")
 public class StatisticsController {
 
-    @Autowired
-    private MicrosoftAccountService microsoftAccountService;
+    private final MicrosoftAccountService microsoftAccountService;
+
+    public StatisticsController(MicrosoftAccountService microsoftAccountService) {
+        this.microsoftAccountService = microsoftAccountService;
+    }
 
     @RequestMapping(
             value = "/join",
@@ -59,7 +62,7 @@ public class StatisticsController {
 
                 microsoftAccountService.save(account);
 
-                log.info("quitted " + account.getMinecraftUsername() + " to minecraft server.");
+                log.info("quitted " + account.getMinecraftUsername() + " from minecraft server.");
             } else {
                 log.info("quitted " + account.getMinecraftUsername() + ", but nothing changed.");
             }

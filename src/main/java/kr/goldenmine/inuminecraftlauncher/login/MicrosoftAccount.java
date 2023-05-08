@@ -83,6 +83,7 @@ public class MicrosoftAccount {
         setAccessToken(user.getAccessToken());
         setMinecraftUuid(user.getId());
         setMinecraftUsername(user.getUsername());
+        setIpAddress(null);
         setServerBorrowed(0);
         setServerQuitted(0);
         setServerJoined(0);

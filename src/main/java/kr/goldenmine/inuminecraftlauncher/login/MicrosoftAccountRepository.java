@@ -26,6 +26,8 @@ public interface MicrosoftAccountRepository extends JpaRepository<MicrosoftAccou
     @Query("SELECT account FROM MicrosoftAccount account WHERE account.serverBorrowed = 0")
     Page<MicrosoftAccount> getAvailableAccounts(Pageable pageable);
 
+
+
     /*
       @Query(value = "SELECT * FROM USERS WHERE LASTNAME = ?1",
     countQuery = "SELECT count(*) FROM USERS WHERE LASTNAME = ?1",

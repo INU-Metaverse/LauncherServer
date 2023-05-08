@@ -85,6 +85,12 @@ public class AccountAutoLoginScheduler extends Thread {
     }
 
     private void tryAllLogin() {
+        File file = new File("inulauncher/oauth/StoredCredential");
+        if(file.exists()) file.delete();
+
+        File file2 = new File("inulauncher/users.json");
+        if(file2.exists()) file2.delete();
+
         DefaultLauncherDirectories directories = new DefaultLauncherDirectories(new File("inulauncher"));
         UserAdministrator userAdministrator = new UserAdministrator(directories);
 
@@ -95,7 +101,7 @@ public class AccountAutoLoginScheduler extends Thread {
 
         for (MicrosoftAccount microsoftAccount : list) {
             try {
-                log.info("try to login " + microsoftAccount.getEmail() + ", " + (microsoftAccount.getTokenExpire() - System.currentTimeMillis()) / 1000 + "s remaining...");
+                log.info("try to login " + microsoftAccount.getEmail() + ", " + Math.max(microsoftAccount.getTokenExpire() - System.currentTimeMillis(), 0) / 1000 + "s remaining...");
 
                 if (microsoftAccount.checkWhetherRefreshNeeded()) {
                     automatic.setAccount(microsoftAccount.getEmail(), microsoftAccount.getPassword());
@@ -110,8 +116,8 @@ public class AccountAutoLoginScheduler extends Thread {
                     log.info("skipped " + microsoftAccount.getEmail());
                 }
 
-                // 그냥 각 계정간 0.5초 텀
-                Thread.sleep(500L);
+                // 그냥 각 계정간 10초 텀
+                Thread.sleep(10000L);
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
             }
@@ -124,7 +130,7 @@ public class AccountAutoLoginScheduler extends Thread {
         private String password;
 
         private boolean running = false;
-        private ChromeDriver driver;
+//        private ChromeDriver driver;
 
         public void setAccount(String id, String password) {
             this.id = id;
@@ -135,6 +141,8 @@ public class AccountAutoLoginScheduler extends Thread {
             ChromeOptions chromeOptions = new ChromeOptions();
             chromeOptions.addArguments("--start-maximized");
             chromeOptions.addArguments("--remote-allow-origins=*");
+//            chromeOptions.addArguments("--headless");
+//            chromeOptions.addArguments("--window-size=1920,1080");
             return new ChromeDriver(chromeOptions);
         }
 
@@ -147,20 +155,7 @@ public class AccountAutoLoginScheduler extends Thread {
 
             log.info("url: " + url);
 
-            if(driver == null) {
-                driver = getChromeDriver();
-            }
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> driver.quit()));
-
-//            String url2 = RetrofitServices.MICROSOFT_LIVE_SERVICE.requestAuthorizationCodeWithCobrandId(
-//                    "select_account",
-//                    "8058f65d-ce06-4c30-9559-473c9275a65d", // 마인크래프트 배경
-//                    clientId,
-//                    "http://localhost:" + 20200 + "/auth/microsoft",
-//                    "code"
-//            ).request().url().url().toString();
-
+            ChromeDriver driver = getChromeDriver();
 
             try {
                 // load login html
@@ -194,6 +189,7 @@ public class AccountAutoLoginScheduler extends Thread {
             } catch (Exception ex) {
                 log.error(ex.getMessage(), ex);
             } finally {
+                driver.quit();
                 synchronized (this) {
                     running = false;
                 }
