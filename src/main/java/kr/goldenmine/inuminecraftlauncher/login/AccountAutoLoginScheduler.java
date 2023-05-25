@@ -2,16 +2,10 @@ package kr.goldenmine.inuminecraftlauncher.login;
 
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import kr.goldenmine.inuminecraftlauncher.launcher.DefaultLauncherDirectories;
-import kr.goldenmine.inuminecraftlauncher.login.impl.AccountException;
 import kr.goldenmine.launchercore.UserAdministrator;
-import kr.goldenmine.launchercore.request.RetrofitServices;
-import kr.goldenmine.launchercore.request.models.MicrosoftTokenResponse;
-import kr.goldenmine.launchercore.request.models.minecraft.MinecraftProfileResponse;
-import kr.goldenmine.launchercore.request.models.xbox.XBoxXstsResponse;
 import kr.goldenmine.launchercore.util.LoopUtil;
 import lombok.extern.slf4j.Slf4j;
 import net.technicpack.minecraftcore.microsoft.auth.MicrosoftUser;
-import net.technicpack.utilslib.DesktopUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -23,7 +17,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -105,7 +98,7 @@ public class AccountAutoLoginScheduler extends Thread {
 
                 if (microsoftAccount.checkWhetherRefreshNeeded()) {
                     automatic.setAccount(microsoftAccount.getEmail(), microsoftAccount.getPassword());
-                    MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 5);
+                    MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 3);
 
                     microsoftAccount.initMicrosoftUser(user);
 
@@ -141,6 +134,7 @@ public class AccountAutoLoginScheduler extends Thread {
             ChromeOptions chromeOptions = new ChromeOptions();
             chromeOptions.addArguments("--start-maximized");
             chromeOptions.addArguments("--remote-allow-origins=*");
+//            chromeOptions.addArguments("--headless=new");
 //            chromeOptions.addArguments("--headless");
 //            chromeOptions.addArguments("--window-size=1920,1080");
             return new ChromeDriver(chromeOptions);
@@ -170,6 +164,7 @@ public class AccountAutoLoginScheduler extends Thread {
                 WebElement submitElement = optionalSubmitElement.get();
 
                 idElement.sendKeys(id);
+                log.info("login id");
                 Thread.sleep(500L);
                 submitElement.click();
 
@@ -177,6 +172,7 @@ public class AccountAutoLoginScheduler extends Thread {
                 submitElement = driver.findElements(By.tagName("input")).stream().filter(it -> "submit".equals(it.getAttribute("type"))).findFirst().get();
 
                 passwordElement.sendKeys(password);
+                log.info("login password");
                 Thread.sleep(500L);
                 submitElement.click();
 
@@ -186,6 +182,7 @@ public class AccountAutoLoginScheduler extends Thread {
                     WebElement nextButton = driver.findElements(By.tagName("input")).stream().filter(it -> "button".equals(it.getAttribute("type")) && "아니요".equals(it.getAttribute("value"))).findFirst().get();
                     nextButton.click();
                 }
+                log.info("ended");
             } catch (Exception ex) {
                 log.error(ex.getMessage(), ex);
             } finally {

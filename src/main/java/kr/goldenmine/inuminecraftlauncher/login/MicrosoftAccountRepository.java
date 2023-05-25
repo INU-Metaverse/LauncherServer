@@ -20,10 +20,10 @@ public interface MicrosoftAccountRepository extends JpaRepository<MicrosoftAccou
     @Query("SELECT COUNT(account) FROM MicrosoftAccount account WHERE account.ipAddress = :current_ip AND account.serverBorrowed = 1")
     int countJoinedIps(@Param("current_ip") String ip);
 
-    @Query("SELECT COUNT(account) FROM MicrosoftAccount account WHERE account.serverBorrowed = 0")
+    @Query("SELECT COUNT(account) FROM MicrosoftAccount account WHERE account.serverBorrowed = 0 AND account.accessToken IS NOT NULL")
     int countAvailableAccounts();
 
-    @Query("SELECT account FROM MicrosoftAccount account WHERE account.serverBorrowed = 0")
+    @Query("SELECT account FROM MicrosoftAccount account WHERE account.serverBorrowed = 0 AND account.accessToken IS NOT NULL")
     Page<MicrosoftAccount> getAvailableAccounts(Pageable pageable);
 
 

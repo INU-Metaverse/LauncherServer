@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.Optional;
 
 @Slf4j
-@RestController()
+@RestController
 @RequestMapping("/account")
 public class AccountController {
     private final MicrosoftAccountService microsoftAccountService;
