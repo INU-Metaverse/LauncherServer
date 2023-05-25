@@ -19,6 +19,7 @@ public class SecurityConfig {
                 .antMatchers("/statistics").hasIpAddress("localhost")
                 .antMatchers("/file/upload").hasIpAddress("localhost")
                 .antMatchers("/file/download").permitAll()
+                .antMatchers("/file/check").permitAll()
 //                .antMatchers("/file/uploadFile").hasIpAddress("localhost")
                 .and()
                 .csrf().disable()

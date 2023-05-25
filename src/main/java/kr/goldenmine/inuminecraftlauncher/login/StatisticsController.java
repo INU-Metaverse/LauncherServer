@@ -11,33 +11,37 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @Slf4j
-@RestController("/statistics")
+@RestController
+@RequestMapping("/statistics")
 public class StatisticsController {
 
-    @Autowired
-    private MicrosoftAccountService microsoftAccountService;
+    private final MicrosoftAccountService microsoftAccountService;
+
+    public StatisticsController(MicrosoftAccountService microsoftAccountService) {
+        this.microsoftAccountService = microsoftAccountService;
+    }
 
     @RequestMapping(
             value = "/join",
-            method = RequestMethod.POST
+            method = RequestMethod.GET
     )
-    public ResponseEntity<?> join(String username) {
+    public ResponseEntity<String> join(String username) {
+        log.info("joined username: " + username);
         final List<MicrosoftAccount> accounts = microsoftAccountService.getAccountFromUsername(username);
 
         if (accounts.size() > 0) {
             final MicrosoftAccount account = accounts.get(0);
 
-            if(account.getServerQuitted() == 1) {
-                account.setServerJoined(1);
-                account.setServerQuitted(0);
+//            if(account.getServerJoined() == 0) {
+            account.setServerJoined(1);
+            account.setServerQuitted(0);
 
-                microsoftAccountService.save(account);
+            microsoftAccountService.save(account);
 
-                log.info("joined " + account.getMinecraftUsername() + " to minecraft server.");
-            } else {
-                log.info("joined " + account.getMinecraftUsername() + ", but nothing changed.");
-            }
-
+            log.info("joined " + account.getMinecraftUsername() + " to minecraft server.");
+//            } else {
+//                log.warn("joined " + account.getMinecraftUsername() + ", but nothing changed.");
+//            }
             return ResponseEntity.ok("");
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("");
@@ -46,23 +50,25 @@ public class StatisticsController {
 
     @RequestMapping(
             value = "/quit",
-            method = RequestMethod.POST
+            method = RequestMethod.GET
     )
-    public ResponseEntity<?> quit(String username) {
+    public ResponseEntity<String> quit(String username) {
+        log.info("quitted username: " + username);
         List<MicrosoftAccount> accounts = microsoftAccountService.getAccountFromUsername(username);
 
         if (accounts.size() > 0) {
             MicrosoftAccount account = accounts.get(0);
 
-            if(account.getServerQuitted() == 0) {
-                account.setServerQuitted(1);
+//            if (account.getServerQuitted() == 0) {
+            account.setServerQuitted(1);
+//                account.setServerBorrowed(0);
 
-                microsoftAccountService.save(account);
+            microsoftAccountService.save(account);
 
-                log.info("quitted " + account.getMinecraftUsername() + " to minecraft server.");
-            } else {
-                log.info("quitted " + account.getMinecraftUsername() + ", but nothing changed.");
-            }
+            log.info("quitted " + account.getMinecraftUsername() + " from minecraft server.");
+//            } else {
+//                log.warn("quitted " + account.getMinecraftUsername() + ", but nothing changed.");
+//            }
 
             return ResponseEntity.ok("");
         } else {

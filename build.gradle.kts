@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "kr.goldenmine.inuminecraftlauncher.server"
-version = "1.0.0-SNAPSHOT"
+version = "1.0.0.1-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -60,6 +60,12 @@ dependencies {
 
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     testImplementation(kotlin("test"))
+
+    implementation("com.google.oauth-client:google-oauth-client:1.34.1")
+    implementation("com.google.oauth-client:google-oauth-client-jetty:1.34.1")
+    implementation("com.google.http-client:google-http-client:1.42.2")
+    implementation("com.google.http-client:google-http-client-gson:1.42.2")
+
 }
 
 tasks.test {
