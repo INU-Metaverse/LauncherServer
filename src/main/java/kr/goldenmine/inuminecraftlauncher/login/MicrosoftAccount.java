@@ -61,6 +61,9 @@ public class MicrosoftAccount {
         boolean quitted = serverQuitted == 1;
         boolean borrowed = serverBorrowed == 1;
 
+        // accessToken이 null이면 무조건
+        boolean t0 = accessToken == null;
+
         // 토큰 받고, 시간 내 접속 안 한 경우 - O
         boolean t1 = borrowed && (!joined && joinTimeExpired);
 
@@ -71,7 +74,7 @@ public class MicrosoftAccount {
         // 토큰 받지 않고 리프레시 시간 초과한 경우 - O
         boolean t3 = !borrowed && accessTimeExpired;
 
-        return t1 || t2 || t3;
+        return t0 || t1 || t2 || t3;
     }
 
     public void updateTokenExpire() {
