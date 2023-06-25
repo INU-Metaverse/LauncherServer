@@ -24,6 +24,7 @@ public class AccountAutoLoginScheduler extends Thread {
     static {
         deleteAccountFile();
     }
+
     private final MicrosoftAccountService microsoftAccountService;
     private final MicrosoftKeyService microsoftKeyService;
     private final DefaultLauncherDirectories directories = new DefaultLauncherDirectories(new File("inulauncher"));
@@ -53,7 +54,7 @@ public class AccountAutoLoginScheduler extends Thread {
         deleteDirectory(file);
 
         File file2 = new File("inulauncher/users.json");
-        if(file2.exists()) file2.delete();
+        if (file2.exists()) file2.delete();
     }
 
     static boolean deleteDirectory(File directoryToBeDeleted) {
@@ -97,10 +98,10 @@ public class AccountAutoLoginScheduler extends Thread {
     }
 
     private MicrosoftUser loginRepeat(UserAdministrator administrator, BrowserAutomatic browser, String username, int repeat) {
-        for(int i = 0; i < repeat; i++) {
+        for (int i = 0; i < repeat; i++) {
             try {
                 return administrator.login(username, browser);
-            } catch(Exception ex) {
+            } catch (Exception ex) {
                 log.error(ex.getMessage(), ex);
             }
         }
@@ -122,7 +123,7 @@ public class AccountAutoLoginScheduler extends Thread {
                         MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 10);
 
                         microsoftAccount.initMicrosoftUser(user);
-                    } catch(LoginException e) {
+                    } catch (LoginException e) {
                         log.error(e.getMessage(), e);
 //                        e.printStackTrace();
                         microsoftAccount.setAccessToken(null); // 로그인 실패시 access token을 null 처리
@@ -171,7 +172,7 @@ public class AccountAutoLoginScheduler extends Thread {
         @Override
         public void browse(String url) throws IOException {
             synchronized (this) {
-                if(running) throw new RuntimeException("browse(url) is already running");
+                if (running) throw new RuntimeException("browse(url) is already running");
                 running = true;
             }
 
@@ -204,10 +205,21 @@ public class AccountAutoLoginScheduler extends Thread {
                 Thread.sleep(500L);
                 submitElement.click();
 
-                Optional<WebElement> find = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "button".equals(it.getAttribute("type")) && "아니요".equals(it.getAttribute("value"))).findFirst(), 1000L, 10);
+                Optional<WebElement> find = LoopUtil.waitWhile(() ->
+                        driver.findElements(By.tagName("input"))
+                                .stream()
+                                .filter(
+                                    it -> "button".equals(it.getAttribute("type")) &&
+                                        ("아니요".equals(it.getAttribute("value")) || "No".equals(it.getAttribute("value")))
+                                ).findFirst(),
+                        1000L, 10);
 
                 if (find.isPresent()) {
-                    WebElement nextButton = driver.findElements(By.tagName("input")).stream().filter(it -> "button".equals(it.getAttribute("type")) && "아니요".equals(it.getAttribute("value"))).findFirst().get();
+                    WebElement nextButton = driver.findElements(By.tagName("input"))
+                            .stream()
+                            .filter(it -> "button".equals(it.getAttribute("type")) &&
+                                    ("아니요".equals(it.getAttribute("value")) || "No".equals(it.getAttribute("value")))
+                    ).findFirst().get();
                     nextButton.click();
                 }
                 log.info("ended");
