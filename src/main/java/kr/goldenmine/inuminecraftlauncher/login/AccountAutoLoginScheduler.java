@@ -68,6 +68,11 @@ public class AccountAutoLoginScheduler extends Thread {
 
     @Override
     public void run() {
+        try {
+            Thread.sleep(30000L); // 30초 뒤 동작
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         while (!stop) {
             try {
                 long start = System.currentTimeMillis();
