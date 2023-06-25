@@ -56,12 +56,12 @@ public class MinecraftApi {
 
         MicrosoftAccount account = microsoftAccountService.selectOneAccount().get();
         System.out.println(account);
-        MicrosoftSession session = new MicrosoftSession(account.getMinecraftUsername(), account.getRecentProfileToken(), account.getMinecraftUuid());
+//        MicrosoftSession session = new MicrosoftSession(account.getMinecraftUsername(), account.getRecentProfileToken(), account.getMinecraftUuid());
 
 //        ISession loginSession = GlobalAuthenticationSystem.login(session);
         MinecraftLauncherBackend launcher = new MinecraftLauncherBackend(workingDirectory);
 
-        launcher.launchMinecraft(session, "1.12.2");
+//        launcher.launchMinecraft(session, "1.12.2");
 
         /*
             {

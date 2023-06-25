@@ -55,6 +55,7 @@ public class FileController {
             String s;
             while((s = r.readLine()) != null) {
                 versions.add(s);
+                logger.info("version: " + s);
             }
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);

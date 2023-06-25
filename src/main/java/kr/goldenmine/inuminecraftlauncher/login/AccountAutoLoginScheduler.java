@@ -21,13 +21,21 @@ import java.util.Optional;
 @Slf4j
 @Service
 public class AccountAutoLoginScheduler extends Thread {
+    static {
+        deleteAccountFile();
+    }
     private final MicrosoftAccountService microsoftAccountService;
     private final MicrosoftKeyService microsoftKeyService;
+    private final DefaultLauncherDirectories directories = new DefaultLauncherDirectories(new File("inulauncher"));
+    private final UserAdministrator userAdministrator = new UserAdministrator(directories);
+    private final BrowserAutomatic automatic = new BrowserAutomatic();
 
     private boolean stop = false;
 
     @Autowired
     public AccountAutoLoginScheduler(MicrosoftAccountService microsoftAccountService, MicrosoftKeyService microsoftKeyService) {
+
+
         this.microsoftAccountService = microsoftAccountService;
         this.microsoftKeyService = microsoftKeyService;
 
@@ -38,6 +46,24 @@ public class AccountAutoLoginScheduler extends Thread {
     public void stopSafely() {
         stop = true;
         interrupt();
+    }
+
+    public static void deleteAccountFile() {
+        File file = new File("inulauncher/oauth");
+        deleteDirectory(file);
+
+        File file2 = new File("inulauncher/users.json");
+        if(file2.exists()) file2.delete();
+    }
+
+    static boolean deleteDirectory(File directoryToBeDeleted) {
+        File[] allContents = directoryToBeDeleted.listFiles();
+        if (allContents != null) {
+            for (File file : allContents) {
+                deleteDirectory(file);
+            }
+        }
+        return directoryToBeDeleted.delete();
     }
 
     @Override
@@ -74,21 +100,10 @@ public class AccountAutoLoginScheduler extends Thread {
             }
         }
 
-        throw new RuntimeException("login failed severaly");
+        throw new LoginException("login failed severaly");
     }
 
     private void tryAllLogin() {
-        File file = new File("inulauncher/oauth/StoredCredential");
-        if(file.exists()) file.delete();
-
-        File file2 = new File("inulauncher/users.json");
-        if(file2.exists()) file2.delete();
-
-        DefaultLauncherDirectories directories = new DefaultLauncherDirectories(new File("inulauncher"));
-        UserAdministrator userAdministrator = new UserAdministrator(directories);
-
-        BrowserAutomatic automatic = new BrowserAutomatic();
-
         List<MicrosoftAccount> list = microsoftAccountService.list();
         log.info("total accounts: " + list.size());
 
@@ -98,19 +113,27 @@ public class AccountAutoLoginScheduler extends Thread {
 
                 if (microsoftAccount.checkWhetherRefreshNeeded()) {
                     automatic.setAccount(microsoftAccount.getEmail(), microsoftAccount.getPassword());
-                    MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 3);
+                    try {
+                        MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 10);
 
-                    microsoftAccount.initMicrosoftUser(user);
+                        microsoftAccount.initMicrosoftUser(user);
+                    } catch(LoginException e) {
+                        log.error(e.getMessage(), e);
+//                        e.printStackTrace();
+                        microsoftAccount.setAccessToken(null); // 로그인 실패시 access token을 null 처리
+                    }
 
                     microsoftAccountService.save(microsoftAccount);
 
-                    log.info("logged " + microsoftAccount.getEmail() + ", " + microsoftAccount.getAccessToken() + ", " + microsoftAccount.getTokenExpire());
+                    log.info("logged in " + microsoftAccount.getEmail() + ", " + microsoftAccount.getAccessToken() + ", " + microsoftAccount.getTokenExpire());
+
+                    // 각 계정간 20초 텀
+                    Thread.sleep(20000L);
                 } else {
                     log.info("skipped " + microsoftAccount.getEmail());
+                    // 스킵은 뭐 그냥 0.1초텀
+                    Thread.sleep(100L);
                 }
-
-                // 그냥 각 계정간 10초 텀
-                Thread.sleep(10000L);
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
             }
@@ -134,9 +157,9 @@ public class AccountAutoLoginScheduler extends Thread {
             ChromeOptions chromeOptions = new ChromeOptions();
             chromeOptions.addArguments("--start-maximized");
             chromeOptions.addArguments("--remote-allow-origins=*");
-//            chromeOptions.addArguments("--headless=new");
+            chromeOptions.addArguments("--headless=new");
 //            chromeOptions.addArguments("--headless");
-//            chromeOptions.addArguments("--window-size=1920,1080");
+            chromeOptions.addArguments("--window-size=1920,1080");
             return new ChromeDriver(chromeOptions);
         }
 
@@ -191,6 +214,12 @@ public class AccountAutoLoginScheduler extends Thread {
                     running = false;
                 }
             }
+        }
+    }
+
+    class LoginException extends RuntimeException {
+        public LoginException(String message) {
+            super(message);
         }
     }
 }
