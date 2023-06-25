@@ -45,7 +45,7 @@ public class AccountController {
             if(account.getServerBorrowed() == 0) {
                 synchronized (lockKey) {
                     if(account.getServerBorrowed() == 0) {
-                        account.setTokenExpire(System.currentTimeMillis() + 60 * 1000L); // 곧바로 리프레쉬 되게 설정
+                        account.setTokenExpire(System.currentTimeMillis() + 300 * 1000L); // 곧바로 리프레쉬 되게 설정
                         account.setIpAddress(remoteIp);
                         account.setServerBorrowed(1);
 
