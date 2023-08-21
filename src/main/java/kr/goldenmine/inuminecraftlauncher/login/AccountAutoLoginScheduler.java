@@ -72,7 +72,7 @@ public class AccountAutoLoginScheduler extends Thread {
         try {
             Thread.sleep(30000L); // 30초 뒤 동작
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
         while (!stop) {
             try {
@@ -104,6 +104,12 @@ public class AccountAutoLoginScheduler extends Thread {
             } catch (Exception ex) {
                 log.error(ex.getMessage(), ex);
             }
+
+            try {
+                Thread.sleep(20000L);
+            } catch (InterruptedException ex) {
+                log.error(ex.getMessage(), ex);
+            }
         }
 
         throw new LoginException("login failed severaly");
@@ -123,18 +129,16 @@ public class AccountAutoLoginScheduler extends Thread {
                         MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 10);
 
                         microsoftAccount.initMicrosoftUser(user);
+
+                        log.info("logged in " + microsoftAccount.getEmail() + ", " + microsoftAccount.getAccessToken() + ", " + microsoftAccount.getTokenExpire());
                     } catch (LoginException e) {
                         log.error(e.getMessage(), e);
 //                        e.printStackTrace();
                         microsoftAccount.setAccessToken(null); // 로그인 실패시 access token을 null 처리
                     }
-
                     microsoftAccountService.save(microsoftAccount);
-
-                    log.info("logged in " + microsoftAccount.getEmail() + ", " + microsoftAccount.getAccessToken() + ", " + microsoftAccount.getTokenExpire());
-
                     // 각 계정간 20초 텀
-                    Thread.sleep(20000L);
+                    Thread.sleep(30000L);
                 } else {
                     log.info("skipped " + microsoftAccount.getEmail());
                     // 스킵은 뭐 그냥 0.1초텀
