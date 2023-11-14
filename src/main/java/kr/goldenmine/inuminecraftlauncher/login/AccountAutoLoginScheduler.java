@@ -107,8 +107,6 @@ public class AccountAutoLoginScheduler extends Thread {
     }
 
     private void tryAllLoginMinecraft() {
-        ChromeDriver driver = getChromeDriver();
-
         // https://sisu.xboxlive.com/connect/XboxLive/?state=login&cobrandId=8058f65d-ce06-4c30-9559-473c9275a65d&tid=896928775&ru=https%3A%2F%2Fwww.minecraft.net%2Fen-us%2Flogin&aid=1142970254
         String url = "https://sisu.xboxlive.com/connect/XboxLive/?state=login&cobrandId=8058f65d-ce06-4c30-9559-473c9275a65d&tid=896928775&ru=https%3A%2F%2Fwww.minecraft.net%2Fen-us%2Flogin&aid=1142970254";
 
@@ -116,6 +114,8 @@ public class AccountAutoLoginScheduler extends Thread {
         log.info("total accounts: " + list.size());
 
         for (MicrosoftAccount microsoftAccount : list) {
+            ChromeDriver driver = getChromeDriver();
+
             String id = microsoftAccount.getEmail();
             String password = microsoftAccount.getPassword();
 
@@ -136,6 +136,7 @@ public class AccountAutoLoginScheduler extends Thread {
                 log.error(e.getMessage(), e);
             }
 
+            driver.quit();
             // 각 계정간 30초 텀
             try {
                 Thread.sleep(30000L);
