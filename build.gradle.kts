@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "kr.goldenmine.inuminecraftlauncher.server"
-version = "1.1.0-SNAPSHOT"
+version = "1.1.1-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -38,10 +38,10 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-scalars:2.9.0")
 
     // https://mvnrepository.com/artifact/org.seleniumhq.selenium/selenium-java
-    implementation("org.seleniumhq.selenium:selenium-java:4.4.0")
+    implementation("org.seleniumhq.selenium:selenium-java:4.11.0")
     // https://mvnrepository.com/artifact/io.github.bonigarcia/webdrivermanager
-    implementation(group="io.github.bonigarcia", name="webdrivermanager", version="5.3.0")
-
+    implementation(group="io.github.bonigarcia", name="webdrivermanager", version="5.4.1")
+    implementation(group="org.apache.httpcomponents.client5", name="httpclient5", version="5.2.1")
     // https://mvnrepository.com/artifact/com.h2database/h2
     testImplementation(group="com.h2database", name="h2", version="2.1.214")
     // https://mvnrepository.com/artifact/mysql/mysql-connector-java

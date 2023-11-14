@@ -1,12 +1,16 @@
 package kr.goldenmine.inuminecraftlauncher.login;
 
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
+import kr.goldenmine.inuminecraftlauncher.Main;
 import kr.goldenmine.inuminecraftlauncher.launcher.DefaultLauncherDirectories;
 import kr.goldenmine.launchercore.UserAdministrator;
 import kr.goldenmine.launchercore.util.LoopUtil;
 import lombok.extern.slf4j.Slf4j;
 import net.technicpack.minecraftcore.microsoft.auth.MicrosoftUser;
+import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.By;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -69,11 +73,11 @@ public class AccountAutoLoginScheduler extends Thread {
 
     @Override
     public void run() {
-        try {
-            Thread.sleep(30000L); // 30초 뒤 동작
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            Thread.sleep(5000L); // 5초 뒤 동작
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
         while (!stop) {
             try {
                 long start = System.currentTimeMillis();
@@ -126,7 +130,7 @@ public class AccountAutoLoginScheduler extends Thread {
                 if (microsoftAccount.checkWhetherRefreshNeeded()) {
                     automatic.setAccount(microsoftAccount.getEmail(), microsoftAccount.getPassword());
                     try {
-                        MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 10);
+                        MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 5);
 
                         microsoftAccount.initMicrosoftUser(user);
 
@@ -137,7 +141,7 @@ public class AccountAutoLoginScheduler extends Thread {
                         microsoftAccount.setAccessToken(null); // 로그인 실패시 access token을 null 처리
                     }
                     microsoftAccountService.save(microsoftAccount);
-                    // 각 계정간 20초 텀
+                    // 각 계정간 30초 텀
                     Thread.sleep(30000L);
                 } else {
                     log.info("skipped " + microsoftAccount.getEmail());
@@ -165,10 +169,14 @@ public class AccountAutoLoginScheduler extends Thread {
 
         public static ChromeDriver getChromeDriver() {
             ChromeOptions chromeOptions = new ChromeOptions();
-            chromeOptions.addArguments("--start-maximized");
+//            chromeOptions.addArguments("--start-maximized");
             chromeOptions.addArguments("--remote-allow-origins=*");
             chromeOptions.addArguments("--headless=new");
 //            chromeOptions.addArguments("--headless");
+//            chromeOptions.addArguments("--disable-gpu");
+//            chromeOptions.addArguments("--auth-server-whitelist=\"localhost:20200\"");
+//            chromeOptions.addArguments("--headless");
+//            chromeOptions.addArguments("no-sandbox");
             chromeOptions.addArguments("--window-size=1920,1080");
             return new ChromeDriver(chromeOptions);
         }
@@ -197,8 +205,8 @@ public class AccountAutoLoginScheduler extends Thread {
                 WebElement submitElement = optionalSubmitElement.get();
 
                 idElement.sendKeys(id);
-                log.info("login id");
-                Thread.sleep(500L);
+                log.info("login id " + id);
+                Thread.sleep(1000L);
                 submitElement.click();
 
                 WebElement passwordElement = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "password".equals(it.getAttribute("type"))).findFirst(), 1000L, -1).get();
@@ -206,8 +214,10 @@ public class AccountAutoLoginScheduler extends Thread {
 
                 passwordElement.sendKeys(password);
                 log.info("login password");
-                Thread.sleep(500L);
+                Thread.sleep(1000L);
                 submitElement.click();
+
+//                Thread.sleep(5000L);
 
                 Optional<WebElement> find = LoopUtil.waitWhile(() ->
                         driver.findElements(By.tagName("input"))
@@ -225,8 +235,15 @@ public class AccountAutoLoginScheduler extends Thread {
                                     ("아니요".equals(it.getAttribute("value")) || "No".equals(it.getAttribute("value")))
                     ).findFirst().get();
                     nextButton.click();
+                } else {
+                    throw new IOException("failed to click");
                 }
                 log.info("ended");
+                File srcFile = ((TakesScreenshot)driver).getScreenshotAs(OutputType.FILE);
+                FileUtils.copyFile(srcFile, new File("headless.png"));
+                Thread.sleep(10000L);
+            } catch(IOException ex) {
+                throw ex;
             } catch (Exception ex) {
                 log.error(ex.getMessage(), ex);
             } finally {
