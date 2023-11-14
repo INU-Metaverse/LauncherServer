@@ -8,9 +8,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public class ServerStatusResponse {
 
-    @SerializedName("available_counts")
     int availableCounts;
 
-    @SerializedName("total_counts")
     int totalCounts;
 }

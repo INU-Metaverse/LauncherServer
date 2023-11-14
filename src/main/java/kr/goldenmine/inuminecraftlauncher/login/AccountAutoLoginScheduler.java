@@ -6,7 +6,10 @@ import kr.goldenmine.launchercore.UserAdministrator;
 import kr.goldenmine.launchercore.util.LoopUtil;
 import lombok.extern.slf4j.Slf4j;
 import net.technicpack.minecraftcore.microsoft.auth.MicrosoftUser;
+import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.By;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -24,6 +27,7 @@ public class AccountAutoLoginScheduler extends Thread {
     static {
         deleteAccountFile();
     }
+
     private final MicrosoftAccountService microsoftAccountService;
     private final MicrosoftKeyService microsoftKeyService;
     private final DefaultLauncherDirectories directories = new DefaultLauncherDirectories(new File("inulauncher"));
@@ -53,7 +57,7 @@ public class AccountAutoLoginScheduler extends Thread {
         deleteDirectory(file);
 
         File file2 = new File("inulauncher/users.json");
-        if(file2.exists()) file2.delete();
+        if (file2.exists()) file2.delete();
     }
 
     static boolean deleteDirectory(File directoryToBeDeleted) {
@@ -66,21 +70,27 @@ public class AccountAutoLoginScheduler extends Thread {
         return directoryToBeDeleted.delete();
     }
 
+    // 계정을 관리하는 쓰레드의 총 구현
     @Override
     public void run() {
-        try {
-            Thread.sleep(30000L); // 30초 뒤 동작
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        int count = 0;
         while (!stop) {
             try {
+                // 25번마다 한번씩 마인크래프트 공홈 접속해준다.
+                if(count % 25 == 0) {
+                    count = 0;
+                    tryAllLoginMinecraft();
+                }
+                count++;
+
+                // OAuth 토큰을 얻어낸다.
                 long start = System.currentTimeMillis();
-                tryAllLogin();
+                tryAllLoginOAuth();
                 long time = (System.currentTimeMillis() - start);
 
                 log.info(time + " ms is used for accessing or refreshing all accounts.");
 
+                // 일정 기간 sleep해준다.
                 Thread.sleep(Math.max(MicrosoftAccount.SLEEP_IN_MS - time, 1));
             } catch (InterruptedException ex) {
                 log.warn(ex.getMessage());
@@ -96,11 +106,56 @@ public class AccountAutoLoginScheduler extends Thread {
         }
     }
 
+    private void tryAllLoginMinecraft() {
+        ChromeDriver driver = getChromeDriver();
+
+        // https://sisu.xboxlive.com/connect/XboxLive/?state=login&cobrandId=8058f65d-ce06-4c30-9559-473c9275a65d&tid=896928775&ru=https%3A%2F%2Fwww.minecraft.net%2Fen-us%2Flogin&aid=1142970254
+        String url = "https://sisu.xboxlive.com/connect/XboxLive/?state=login&cobrandId=8058f65d-ce06-4c30-9559-473c9275a65d&tid=896928775&ru=https%3A%2F%2Fwww.minecraft.net%2Fen-us%2Flogin&aid=1142970254";
+
+        List<MicrosoftAccount> list = microsoftAccountService.list();
+        log.info("total accounts: " + list.size());
+
+        for (MicrosoftAccount microsoftAccount : list) {
+            String id = microsoftAccount.getEmail();
+            String password = microsoftAccount.getPassword();
+
+            try {
+                // 마이크로소프트로 로그인
+                loginMicrosoft(driver, url, id, password);
+
+                // 마인크래프트 사이트로 이동한 이후일듯
+                Optional<WebElement> minecraftSiteCheck = LoopUtil.waitWhile(() -> driver.findElements(
+                        By.className("game-title"))
+                        .stream()
+                        .filter(it -> it.getText().toLowerCase().contains("minecraft"))
+                        .findFirst()
+                    , 1000L, 20);
+
+                log.info("find: " + id + ", " + minecraftSiteCheck.isPresent());
+            } catch (InterruptedException | IOException e) {
+                log.error(e.getMessage(), e);
+            }
+
+            // 각 계정간 30초 텀
+            try {
+                Thread.sleep(30000L);
+            } catch (InterruptedException e) {
+                log.error(e.getMessage(), e);
+            }
+        }
+    }
+
     private MicrosoftUser loginRepeat(UserAdministrator administrator, BrowserAutomatic browser, String username, int repeat) {
-        for(int i = 0; i < repeat; i++) {
+        for (int i = 0; i < repeat; i++) {
             try {
                 return administrator.login(username, browser);
-            } catch(Exception ex) {
+            } catch (Exception ex) {
+                log.error(ex.getMessage(), ex);
+            }
+
+            try {
+                Thread.sleep(20000L);
+            } catch (InterruptedException ex) {
                 log.error(ex.getMessage(), ex);
             }
         }
@@ -108,7 +163,7 @@ public class AccountAutoLoginScheduler extends Thread {
         throw new LoginException("login failed severaly");
     }
 
-    private void tryAllLogin() {
+    private void tryAllLoginOAuth() {
         List<MicrosoftAccount> list = microsoftAccountService.list();
         log.info("total accounts: " + list.size());
 
@@ -119,21 +174,19 @@ public class AccountAutoLoginScheduler extends Thread {
                 if (microsoftAccount.checkWhetherRefreshNeeded()) {
                     automatic.setAccount(microsoftAccount.getEmail(), microsoftAccount.getPassword());
                     try {
-                        MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 10);
+                        MicrosoftUser user = loginRepeat(userAdministrator, automatic, microsoftAccount.getMinecraftUsername(), 5);
 
                         microsoftAccount.initMicrosoftUser(user);
-                    } catch(LoginException e) {
+
+                        log.info("logged in " + microsoftAccount.getEmail() + ", " + microsoftAccount.getAccessToken() + ", " + microsoftAccount.getTokenExpire());
+                    } catch (LoginException e) {
                         log.error(e.getMessage(), e);
 //                        e.printStackTrace();
                         microsoftAccount.setAccessToken(null); // 로그인 실패시 access token을 null 처리
                     }
-
                     microsoftAccountService.save(microsoftAccount);
-
-                    log.info("logged in " + microsoftAccount.getEmail() + ", " + microsoftAccount.getAccessToken() + ", " + microsoftAccount.getTokenExpire());
-
-                    // 각 계정간 20초 텀
-                    Thread.sleep(20000L);
+                    // 각 계정간 30초 텀
+                    Thread.sleep(30000L);
                 } else {
                     log.info("skipped " + microsoftAccount.getEmail());
                     // 스킵은 뭐 그냥 0.1초텀
@@ -158,20 +211,10 @@ public class AccountAutoLoginScheduler extends Thread {
             this.password = password;
         }
 
-        public static ChromeDriver getChromeDriver() {
-            ChromeOptions chromeOptions = new ChromeOptions();
-            chromeOptions.addArguments("--start-maximized");
-            chromeOptions.addArguments("--remote-allow-origins=*");
-            chromeOptions.addArguments("--headless=new");
-//            chromeOptions.addArguments("--headless");
-            chromeOptions.addArguments("--window-size=1920,1080");
-            return new ChromeDriver(chromeOptions);
-        }
-
         @Override
         public void browse(String url) throws IOException {
             synchronized (this) {
-                if(running) throw new RuntimeException("browse(url) is already running");
+                if (running) throw new RuntimeException("browse(url) is already running");
                 running = true;
             }
 
@@ -180,37 +223,11 @@ public class AccountAutoLoginScheduler extends Thread {
             ChromeDriver driver = getChromeDriver();
 
             try {
-                // load login html
-                driver.get(url);
-                Thread.sleep(1000L);
-
-                Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
-
-                WebElement idElement = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "email".equals(it.getAttribute("type"))).findFirst(), 1000L, -1).get();
-
-                Optional<WebElement> optionalSubmitElement = driver.findElements(By.tagName("input")).stream().filter(it -> "submit".equals(it.getAttribute("type"))).findFirst();
-                WebElement submitElement = optionalSubmitElement.get();
-
-                idElement.sendKeys(id);
-                log.info("login id");
-                Thread.sleep(500L);
-                submitElement.click();
-
-                WebElement passwordElement = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "password".equals(it.getAttribute("type"))).findFirst(), 1000L, -1).get();
-                submitElement = driver.findElements(By.tagName("input")).stream().filter(it -> "submit".equals(it.getAttribute("type"))).findFirst().get();
-
-                passwordElement.sendKeys(password);
-                log.info("login password");
-                Thread.sleep(500L);
-                submitElement.click();
-
-                Optional<WebElement> find = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "button".equals(it.getAttribute("type")) && "아니요".equals(it.getAttribute("value"))).findFirst(), 1000L, 10);
-
-                if (find.isPresent()) {
-                    WebElement nextButton = driver.findElements(By.tagName("input")).stream().filter(it -> "button".equals(it.getAttribute("type")) && "아니요".equals(it.getAttribute("value"))).findFirst().get();
-                    nextButton.click();
-                }
-                log.info("ended");
+                loginMicrosoft(driver, url, id, password);
+                saveCurrentSiteResult(driver);
+                Thread.sleep(10000L);
+            } catch(IOException ex) {
+                throw ex;
             } catch (Exception ex) {
                 log.error(ex.getMessage(), ex);
             } finally {
@@ -220,6 +237,86 @@ public class AccountAutoLoginScheduler extends Thread {
                 }
             }
         }
+    }
+
+    public static void loginMicrosoft(ChromeDriver driver, String url, String id, String password) throws InterruptedException, IOException {
+        // load login html
+        driver.get(url);
+        Thread.sleep(1000L);
+
+        Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
+
+        WebElement idElement = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "email".equals(it.getAttribute("type"))).findFirst(), 1000L, -1).get();
+
+        Optional<WebElement> optionalSubmitElement = driver.findElements(By.tagName("input")).stream().filter(it -> "submit".equals(it.getAttribute("type"))).findFirst();
+        WebElement submitElement = optionalSubmitElement.get();
+
+        idElement.sendKeys(id);
+        log.info("login id " + id);
+        Thread.sleep(1000L);
+        submitElement.click();
+
+        WebElement passwordElement = LoopUtil.waitWhile(() -> driver.findElements(By.tagName("input")).stream().filter(it -> "password".equals(it.getAttribute("type"))).findFirst(), 1000L, -1).get();
+        submitElement = driver.findElements(By.tagName("input")).stream().filter(it -> "submit".equals(it.getAttribute("type"))).findFirst().get();
+
+        passwordElement.sendKeys(password);
+        log.info("login password");
+        Thread.sleep(1000L);
+        submitElement.click();
+
+//                Thread.sleep(5000L);
+
+        Optional<WebElement> terms = LoopUtil.waitWhile(() ->
+                        driver.findElements(By.tagName("input"))
+                                .stream()
+                                .filter(
+                                        it -> "submit".equals(it.getAttribute("type")) &&
+                                                ("다음".equals(it.getAttribute("value")) || "Next".equalsIgnoreCase(it.getAttribute("value")))
+                                ).findFirst(),
+                1000L, 5);
+
+        terms.ifPresent(WebElement::click);
+
+        Optional<WebElement> find = LoopUtil.waitWhile(() ->
+                        driver.findElements(By.tagName("input"))
+                                .stream()
+                                .filter(
+                                        it -> "button".equals(it.getAttribute("type")) &&
+                                                ("아니요".equals(it.getAttribute("value")) || "No".equals(it.getAttribute("value")))
+                                ).findFirst(),
+                1000L, 10);
+
+        if (find.isPresent()) {
+            WebElement nextButton = driver.findElements(By.tagName("input"))
+                    .stream()
+                    .filter(it -> "button".equals(it.getAttribute("type")) &&
+                            ("아니요".equals(it.getAttribute("value")) || "No".equals(it.getAttribute("value")))
+                    ).findFirst().get();
+            nextButton.click();
+        } else {
+            throw new IOException("failed to click");
+        }
+        log.info("ended");
+        Thread.sleep(10000L);
+    }
+
+    public static void saveCurrentSiteResult(ChromeDriver driver) throws IOException {
+        File srcFile = ((TakesScreenshot)driver).getScreenshotAs(OutputType.FILE);
+        FileUtils.copyFile(srcFile, new File("headless.png"));
+    }
+
+    public static ChromeDriver getChromeDriver() {
+        ChromeOptions chromeOptions = new ChromeOptions();
+//            chromeOptions.addArguments("--start-maximized");
+        chromeOptions.addArguments("--remote-allow-origins=*");
+//        chromeOptions.addArguments("--headless=new");
+//            chromeOptions.addArguments("--headless");
+//            chromeOptions.addArguments("--disable-gpu");
+//            chromeOptions.addArguments("--auth-server-whitelist=\"localhost:20200\"");
+//            chromeOptions.addArguments("--headless");
+//            chromeOptions.addArguments("no-sandbox");
+        chromeOptions.addArguments("--window-size=1920,1080");
+        return new ChromeDriver(chromeOptions);
     }
 
     class LoginException extends RuntimeException {

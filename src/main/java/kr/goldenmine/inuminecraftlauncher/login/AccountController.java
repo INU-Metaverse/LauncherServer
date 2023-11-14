@@ -97,6 +97,8 @@ public class AccountController {
         int available = microsoftAccountService.countAvailableAccounts();
         int total = microsoftAccountService.countAllAccounts();
 
+//        log.info(available + "/" + total);
+
         ServerStatusResponse response = new ServerStatusResponse(available, total);
 
         return ResponseEntity.ok(response);

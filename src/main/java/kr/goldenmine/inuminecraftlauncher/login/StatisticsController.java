@@ -47,6 +47,7 @@ public class StatisticsController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("");
         }
     }
+    
 
     @RequestMapping(
             value = "/quit",

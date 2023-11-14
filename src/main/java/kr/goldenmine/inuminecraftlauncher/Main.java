@@ -27,6 +27,7 @@ public class Main {
      */
 
     // --spring.config.location=classpath:/default.properties,classpath:/override.properties
+
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
 //        MicrosoftServiceImpl.tryAllLogin();
         WebDriverManager.chromedriver().setup();
