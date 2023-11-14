@@ -309,7 +309,7 @@ public class AccountAutoLoginScheduler extends Thread {
         ChromeOptions chromeOptions = new ChromeOptions();
 //            chromeOptions.addArguments("--start-maximized");
         chromeOptions.addArguments("--remote-allow-origins=*");
-//        chromeOptions.addArguments("--headless=new");
+        chromeOptions.addArguments("--headless=new");
 //            chromeOptions.addArguments("--headless");
 //            chromeOptions.addArguments("--disable-gpu");
 //            chromeOptions.addArguments("--auth-server-whitelist=\"localhost:20200\"");
