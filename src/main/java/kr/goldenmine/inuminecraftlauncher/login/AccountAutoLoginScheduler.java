@@ -171,7 +171,7 @@ public class AccountAutoLoginScheduler extends Thread {
             ChromeOptions chromeOptions = new ChromeOptions();
 //            chromeOptions.addArguments("--start-maximized");
             chromeOptions.addArguments("--remote-allow-origins=*");
-            chromeOptions.addArguments("--headless=new");
+//            chromeOptions.addArguments("--headless=new");
 //            chromeOptions.addArguments("--headless");
 //            chromeOptions.addArguments("--disable-gpu");
 //            chromeOptions.addArguments("--auth-server-whitelist=\"localhost:20200\"");
@@ -218,6 +218,17 @@ public class AccountAutoLoginScheduler extends Thread {
                 submitElement.click();
 
 //                Thread.sleep(5000L);
+
+                Optional<WebElement> terms = LoopUtil.waitWhile(() ->
+                                driver.findElements(By.tagName("input"))
+                                        .stream()
+                                        .filter(
+                                                it -> "submit".equals(it.getAttribute("type")) &&
+                                                        ("다음".equals(it.getAttribute("value")) || "Next".equalsIgnoreCase(it.getAttribute("value")))
+                                        ).findFirst(),
+                        1000L, 5);
+
+                terms.ifPresent(WebElement::click);
 
                 Optional<WebElement> find = LoopUtil.waitWhile(() ->
                         driver.findElements(By.tagName("input"))
